@@ -59,6 +59,10 @@ def button(update: Update, context: CallbackContext) -> None:
     # Tareas asociadas a la lista seleccionada por el usuario
     docs = db.collection(u'tasks').where(
         u'list_id', u'==', query.data).stream()
+    
+    # Nombre de la lista
+    list_doc = db.collection(u'lists').document(query.data).get()
+    list_data = list_doc.to_dict()
 
     response = ""
     index = 1
@@ -70,6 +74,8 @@ def button(update: Update, context: CallbackContext) -> None:
         else:
             response = response + "\n" + str(index) + ". " + data["title"]
             index += 1
+    
+    response = list_data["title"] + "\n\n" + response
 
     # Updates the message text
     query.edit_message_text(text=response)
