@@ -5,6 +5,7 @@ import logging
 import os
 import firebase_admin
 from firebase_admin import firestore
+from zoneinfo import ZoneInfo
 import json
 
 # Se cargan todas las variables encontradas en el archivo .env como variables de ambiente,
@@ -68,17 +69,19 @@ def button(update: Update, context: CallbackContext) -> None:
     index = 1
     for doc in docs:
         data = doc.to_dict()
+        # TODO: La hora debería cambiar en base al timezone del usuario, por ahora se usa el timezone America/Santiago
+        time_america_santiago = data["reminder_time"].astimezone(ZoneInfo("America/Santiago"))
         if response == "":
-            response = str(index) + ". " + data["title"]
+            response = "*" + str(index) + ". " + data["title"] + "*" + " | "+ time_america_santiago.strftime("%d/%m/%Y, %H:%M") + "\n\t\t\t\t" + "_" + data["description"] + "_"
             index += 1
         else:
-            response = response + "\n" + str(index) + ". " + data["title"]
+            response = response + "\n" + "*" + str(index) + ". " + data["title"] + "*" + " | " + time_america_santiago.strftime("%d/%m/%Y, %H:%M") + "\n\t\t\t\t" + "_" + data["description"] + "_"
             index += 1
     
     response = list_data["title"] + "\n\n" + response
 
     # Updates the message text
-    query.edit_message_text(text=response)
+    query.edit_message_text(text=response, parse_mode="Markdown")
 
 # Se registra un CommandHandler para el comando /start
 start_handler = CommandHandler('start', start)
