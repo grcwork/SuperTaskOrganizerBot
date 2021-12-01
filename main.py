@@ -3,10 +3,19 @@ from telegram import Update
 from dotenv import load_dotenv, find_dotenv
 import logging
 import os
+import firebase_admin
+from firebase_admin import firestore
+import json
 
 #Se cargan todas las variables encontradas en el archivo .env como variables de ambiente,
 #en específico se carga la variable TELEGRAM_TOKEN la cual contiene el token del bot
 load_dotenv(find_dotenv())
+
+#Iniciar conección con Firebase
+default_app = firebase_admin.initialize_app(options={'storageBucket': 'gs://supertaskorganizerbot.appspot.com'})
+
+#Crear un cliente para interactuar con la base de datos
+db = firestore.client()
 
 #Configuración básica del sistema de logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
