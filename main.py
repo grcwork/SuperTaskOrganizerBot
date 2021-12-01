@@ -31,9 +31,21 @@ def start(update: Update, context: CallbackContext):
     logging.info(f"User name: {update.effective_message.from_user.first_name}, User id: {update.effective_message.from_user.id}")
     context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
 
+#Desplegar al usuario las listas existentes
+def display_lists(update: Update, context: CallbackContext):
+    docs = db.collection(u'lists').where(u'telegram_user_id', u'==', update.effective_message.from_user.id).stream()
+    
+    for doc in docs:
+        data = doc.to_dict()
+        context.bot.send_message(chat_id=update.effective_chat.id, text=data["title"])
+
 #Se registra un CommandHandler para el comando /start
 start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
+
+#Se registra un CommandHandler para el comando /lists
+lists_handler = CommandHandler('lists', display_lists)
+dispatcher.add_handler(lists_handler)
 
 #Se empiezan a traer updates desde Telegram
 updater.start_polling()
