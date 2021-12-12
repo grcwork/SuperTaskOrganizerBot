@@ -64,32 +64,30 @@ def get_chat_id(update: Update, context: CallbackContext):
         chat_id = context.bot_data[update.poll.id]
 
     return chat_id
-queued_messages = [] # Solución temporal fea
 
 # Genera las tareas para enviar el recordatorio en la fecha adecuada
 def set_up_reminders(update: Update, context: CallbackContext):
     # Revisar todas las tareas programadas
     tasks = db.collection(u'tasks').stream()
-    update.message.reply_text("Intentando crear recordatorios!")
+    #update.message.reply_text("Intentando crear recordatorios!")
+
+    # Generar tareas
     for task in tasks:
         data = task.to_dict()
 
-        print(data['title'])
-        print(data['reminder_time'])
-        print(data['description'])
-        print(data['telegram_user_id'])
-        LOCAL_TIMEZONE = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+        # Datetime de google es con nanosegundos, quitarlos, y transformar a UTC, ya que el la jobqueue es complicado
+        # con el tema de las timezones locales
         dt = datetime.datetime.fromtimestamp(data['reminder_time'].timestamp())
         dt_utc = dt.astimezone(pytz.utc)
-        print(dt)
-        print(dt_utc)
+
+        # Crear mensaje de recordatorio
         msg = "¡Recordatorio!\n" + data['title'] + "\n" + data['description'] + "\n\nEs ahora."
+        # Crear tarea, con context [chat_id, msg]
         context.job_queue.run_once(lambda cb: send_reminder(cb), when=dt_utc, context=[int(data['telegram_user_id']), msg])
 
-
+# Enviar recordatorio al chat especificado
 def send_reminder(context: CallbackContext):
-    if context.job.context[0] == 1506285724:
-        context.bot.send_message(context.job.context[0], text=context.job.context[1])
+    context.bot.send_message(chat_id=context.job.context[0], text=context.job.context[1])
     
 
 # Parses the CallbackQuery and updates the message text
