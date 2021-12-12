@@ -1,4 +1,5 @@
 import queue
+from threading import local
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, JobQueue
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from dotenv import load_dotenv, find_dotenv
@@ -8,7 +9,7 @@ import firebase_admin
 from firebase_admin import firestore
 from zoneinfo import ZoneInfo
 import json
-#import copy, datetime
+import pytz, datetime
 #from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
 # Se cargan todas las variables encontradas en el archivo .env como variables de ambiente,
@@ -77,14 +78,13 @@ def set_up_reminders(update: Update, context: CallbackContext):
         print(data['reminder_time'])
         print(data['description'])
         print(data['telegram_user_id'])
-
+        LOCAL_TIMEZONE = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+        dt = datetime.datetime.fromtimestamp(data['reminder_time'].timestamp())
+        dt_utc = dt.astimezone(pytz.utc)
+        print(dt)
+        print(dt_utc)
         msg = "¡Recordatorio!\n" + data['title'] + "\n" + data['description'] + "\n\nEs ahora."
-        #dt = tuple([int(x) for x in data['reminder_time'][:10].split('-')] + [int(x) for x in data['reminder_time'][11].split(':')])
-        #print('Datetime:')
-        #print(dt)
-        #datetimeobj = datetime.datetime(*dt)
-        #print(datetimeobj)
-        context.job_queue.run_once(lambda cb: send_reminder(cb), when=3, context=[int(data['telegram_user_id']), msg])
+        context.job_queue.run_once(lambda cb: send_reminder(cb), when=dt_utc, context=[int(data['telegram_user_id']), msg])
 
 
 def send_reminder(context: CallbackContext):
@@ -139,7 +139,7 @@ button_handler = CallbackQueryHandler(button)
 dispatcher.add_handler(button_handler)
 
 # Registrar comandos para probar recordatorio
-reminder_test_handler = CommandHandler('remindtest', set_up_reminders)
+reminder_test_handler = CommandHandler('t', set_up_reminders)
 dispatcher.add_handler(reminder_test_handler)
 
 # Se empiezan a traer updates desde Telegram
