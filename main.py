@@ -49,6 +49,18 @@ def display_lists(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Your lists:', reply_markup=reply_markup)
 
+# Crear lista de tareas nueva
+def create_new_list(update: Update, context: CallbackContext):
+    # Datos de la nueva lista
+    new_list = { "title": context.args[0], "telegram_user_id": update.effective_message.from_user.id }
+
+    # Peticióna la BD para crear la lista
+    db.collection(u'lists').add(new_list)
+
+    # Mensaje de confirmación
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text="¡Lista creada!")
+
 # Parses the CallbackQuery and updates the message text
 def button(update: Update, context: CallbackContext) -> None:
     # Parses the CallbackQuery
@@ -94,6 +106,10 @@ dispatcher.add_handler(lists_handler)
 # Se registra un CallbackQueryHandler para los botones
 button_handler = CallbackQueryHandler(button)
 dispatcher.add_handler(button_handler)
+
+# Se registra un CommandHandler para el comando /newlist
+new_list_handler = CommandHandler('newlist', create_new_list)
+dispatcher.add_handler(new_list_handler)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
