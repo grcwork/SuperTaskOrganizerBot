@@ -1,3 +1,4 @@
+import queue
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, JobQueue
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from dotenv import load_dotenv, find_dotenv
@@ -7,6 +8,8 @@ import firebase_admin
 from firebase_admin import firestore
 from zoneinfo import ZoneInfo
 import json
+#import copy, datetime
+#from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
 # Se cargan todas las variables encontradas en el archivo .env como variables de ambiente,
 # en específico se carga la variable TELEGRAM_TOKEN la cual contiene el token del bot
@@ -60,15 +63,34 @@ def get_chat_id(update: Update, context: CallbackContext):
         chat_id = context.bot_data[update.poll.id]
 
     return chat_id
+queued_messages = [] # Solución temporal fea
 
 # Genera las tareas para enviar el recordatorio en la fecha adecuada
 def set_up_reminders(update: Update, context: CallbackContext):
     # Revisar todas las tareas programadas
-    update.message.reply_text("Intentando crear recordatorio! Debería verse en 5 segundos")
-    context.job_queue.run_once(lambda cb: send_reminder(cb, get_chat_id(update, context)), when=1, context=update)
+    tasks = db.collection(u'tasks').stream()
+    update.message.reply_text("Intentando crear recordatorios!")
+    for task in tasks:
+        data = task.to_dict()
+
+        print(data['title'])
+        print(data['reminder_time'])
+        print(data['description'])
+        print(data['telegram_user_id'])
+
+        msg = "¡Recordatorio!\n" + data['title'] + "\n" + data['description'] + "\n\nEs ahora."
+        #dt = tuple([int(x) for x in data['reminder_time'][:10].split('-')] + [int(x) for x in data['reminder_time'][11].split(':')])
+        #print('Datetime:')
+        #print(dt)
+        #datetimeobj = datetime.datetime(*dt)
+        #print(datetimeobj)
+        context.job_queue.run_once(lambda cb: send_reminder(cb), when=3, context=[int(data['telegram_user_id']), msg])
+
+
+def send_reminder(context: CallbackContext):
+    if context.job.context[0] == 1506285724:
+        context.bot.send_message(context.job.context[0], text=context.job.context[1])
     
-def send_reminder(cb, chat_id):
-    cb.bot.send_message(chat_id, text="Soy un recordatorio!")
 
 # Parses the CallbackQuery and updates the message text
 def button(update: Update, context: CallbackContext) -> None:
