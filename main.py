@@ -1,4 +1,4 @@
-from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler
+from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, JobQueue
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from dotenv import load_dotenv, find_dotenv
 import logging
@@ -49,6 +49,27 @@ def display_lists(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Your lists:', reply_markup=reply_markup)
 
+def get_chat_id(update: Update, context: CallbackContext):
+    chat_id = -1
+
+    if update.message is not None:
+        chat_id = update.message.chat.id
+    elif update.callback_query is not None:
+        chat_id = update.callback_query.message.chat.id
+    elif update.poll is not None:
+        chat_id = context.bot_data[update.poll.id]
+
+    return chat_id
+
+# Genera las tareas para enviar el recordatorio en la fecha adecuada
+def set_up_reminders(update: Update, context: CallbackContext):
+    # Revisar todas las tareas programadas
+    update.message.reply_text("Intentando crear recordatorio! Debería verse en 5 segundos")
+    context.job_queue.run_once(lambda cb: send_reminder(cb, get_chat_id(update, context)), when=1, context=update)
+    
+def send_reminder(cb, chat_id):
+    cb.bot.send_message(chat_id, text="Soy un recordatorio!")
+
 # Parses the CallbackQuery and updates the message text
 def button(update: Update, context: CallbackContext) -> None:
     # Parses the CallbackQuery
@@ -94,6 +115,10 @@ dispatcher.add_handler(lists_handler)
 # Se registra un CallbackQueryHandler para los botones
 button_handler = CallbackQueryHandler(button)
 dispatcher.add_handler(button_handler)
+
+# Registrar comandos para probar recordatorio
+reminder_test_handler = CommandHandler('remindtest', set_up_reminders)
+dispatcher.add_handler(reminder_test_handler)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
