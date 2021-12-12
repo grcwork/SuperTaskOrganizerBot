@@ -66,7 +66,9 @@ def get_chat_id(update: Update, context: CallbackContext):
     return chat_id
 
 # Genera las tareas para enviar el recordatorio en la fecha adecuada
-def set_up_reminders(update: Update, context: CallbackContext):
+def set_up_reminders(context: CallbackContext):
+    print("Generando tareas para recordatorios")
+
     # Revisar todas las tareas programadas
     tasks = db.collection(u'tasks').stream()
     #update.message.reply_text("Intentando crear recordatorios!")
@@ -136,12 +138,10 @@ dispatcher.add_handler(lists_handler)
 button_handler = CallbackQueryHandler(button)
 dispatcher.add_handler(button_handler)
 
-# Registrar comandos para probar recordatorio
-reminder_test_handler = CommandHandler('t', set_up_reminders)
-dispatcher.add_handler(reminder_test_handler)
-
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
+
+updater.job_queue.run_once(set_up_reminders, when=1)
 
 # Para escuchar por señales, por ejemplo CTRL + C
 updater.idle()
