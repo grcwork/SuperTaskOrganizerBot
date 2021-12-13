@@ -1,4 +1,6 @@
-from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler
+import queue
+from threading import local
+from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, JobQueue
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from dotenv import load_dotenv, find_dotenv
 import logging
@@ -7,6 +9,8 @@ import firebase_admin
 from firebase_admin import firestore
 from zoneinfo import ZoneInfo
 import json
+import pytz, datetime
+#from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
 # Se cargan todas las variables encontradas en el archivo .env como variables de ambiente,
 # en específico se carga la variable TELEGRAM_TOKEN la cual contiene el token del bot
@@ -48,6 +52,45 @@ def display_lists(update: Update, context: CallbackContext):
             data["title"], callback_data=doc.id))
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Your lists:', reply_markup=reply_markup)
+
+def get_chat_id(update: Update, context: CallbackContext):
+    chat_id = -1
+
+    if update.message is not None:
+        chat_id = update.message.chat.id
+    elif update.callback_query is not None:
+        chat_id = update.callback_query.message.chat.id
+    elif update.poll is not None:
+        chat_id = context.bot_data[update.poll.id]
+
+    return chat_id
+
+# Genera las tareas para enviar el recordatorio en la fecha adecuada
+def set_up_reminders(context: CallbackContext):
+    print("Generando tareas para recordatorios")
+
+    # Revisar todas las tareas programadas
+    tasks = db.collection(u'tasks').stream()
+    #update.message.reply_text("Intentando crear recordatorios!")
+
+    # Generar tareas
+    for task in tasks:
+        data = task.to_dict()
+
+        # Datetime de google es con nanosegundos, quitarlos, y transformar a UTC, ya que el la jobqueue es complicado
+        # con el tema de las timezones locales
+        dt = datetime.datetime.fromtimestamp(data['reminder_time'].timestamp())
+        dt_utc = dt.astimezone(pytz.utc)
+
+        # Crear mensaje de recordatorio
+        msg = "¡Recordatorio!\n" + data['title'] + "\n" + data['description'] + "\n\nEs ahora."
+        # Crear tarea, con context [chat_id, msg]
+        context.job_queue.run_once(lambda cb: send_reminder(cb), when=dt_utc, context=[int(data['telegram_user_id']), msg])
+
+# Enviar recordatorio al chat especificado
+def send_reminder(context: CallbackContext):
+    context.bot.send_message(chat_id=context.job.context[0], text=context.job.context[1])
+    
 
 # Parses the CallbackQuery and updates the message text
 def button(update: Update, context: CallbackContext) -> None:
@@ -97,6 +140,8 @@ dispatcher.add_handler(button_handler)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
+
+updater.job_queue.run_once(set_up_reminders, when=1)
 
 # Para escuchar por señales, por ejemplo CTRL + C
 updater.idle()
