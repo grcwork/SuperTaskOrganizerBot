@@ -94,7 +94,7 @@ def create_new_task(update: Update, context: CallbackContext):
         user_lists.append([index, data["title"], doc.id])
         index+=1
 
-    # Mensaje a imprimir (se imprimen las listas del usurario)
+    # Mensaje a imprimir (se imprimen las listas del usuario)
     text = "Ingresa el número de la lista a la que le quieres agregar una tarea\n\n"
     for item in user_lists:
         text += "*" + str(item[0]) + ". " + "*" + item[1] + "\n"
@@ -165,8 +165,31 @@ def task_reminder_time(update: Update, context: CallbackContext):
 
     return ConversationHandler.END
 
-def delete_task():
-    pass
+def delete_task(update: Update, context: CallbackContext):
+    # Vamos a buscar las listas del usuario a la BD
+    docs = db.collection(u'lists').where(
+        u'telegram_user_id', u'==', update.effective_message.from_user.id).stream()
+
+    # Convertimos los datos al formato [ [index, title, list_id], ... ]
+    user_lists = []
+    index = 1
+    for doc in docs:
+        data = doc.to_dict()
+        user_lists.append([index, data["title"], doc.id])
+        index+=1
+
+    # Mensaje a imprimir (se imprimen las listas del usuario)
+    text = "Ingresa el número de la lista de la que quieres eliminar una tarea\n\n"
+    for item in user_lists:
+        text += "*" + str(item[0]) + ". " + "*" + item[1] + "\n"
+
+    # Guardamos las listas del usuario
+    context.user_data["user_lists"] = user_lists
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, parse_mode="Markdown")
+
+    return LIST_TO_SEARCH
 
 def lists_to_search():
     pass
