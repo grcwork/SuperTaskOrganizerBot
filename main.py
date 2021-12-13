@@ -7,13 +7,16 @@ import logging
 import os
 import firebase_admin
 from firebase_admin import firestore
-#from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 import json
 import time
 from telegram.ext.messagehandler import MessageHandler
 
 # Variables para la conversación donde se crea una nueva tarea
 LIST, TITLE, DESCRIPTION, REMINDER_TIME = range(4)
+
+# Variables para la conversación que elimina una tarea existente
+LIST_TO_SEARCH, TASK_TO_DELETE = range(2)
 
 import pytz, datetime
 #from google.api_core.datetime_helpers import DatetimeWithNanoseconds
@@ -91,7 +94,7 @@ def create_new_task(update: Update, context: CallbackContext):
         user_lists.append([index, data["title"], doc.id])
         index+=1
 
-    # Mensaje a imprimir (se imprimen las listas del usurario)
+    # Mensaje a imprimir (se imprimen las listas del usuario)
     text = "Ingresa el número de la lista a la que le quieres agregar una tarea\n\n"
     for item in user_lists:
         text += "*" + str(item[0]) + ". " + "*" + item[1] + "\n"
@@ -159,6 +162,88 @@ def task_reminder_time(update: Update, context: CallbackContext):
 
     # Petición a la BD para crear la tarea
     db.collection(u'tasks').add(new_task)
+
+    return ConversationHandler.END
+
+def delete_task(update: Update, context: CallbackContext):
+    # Vamos a buscar las listas del usuario a la BD
+    docs = db.collection(u'lists').where(
+        u'telegram_user_id', u'==', update.effective_message.from_user.id).stream()
+
+    # Convertimos los datos al formato [ [index, title, list_id], ... ]
+    user_lists = []
+    index = 1
+    for doc in docs:
+        data = doc.to_dict()
+        user_lists.append([index, data["title"], doc.id])
+        index+=1
+
+    # Mensaje a imprimir (se imprimen las listas del usuario)
+    text = "Ingresa el número de la lista de la que quieres eliminar una tarea\n\n"
+    for item in user_lists:
+        text += "*" + str(item[0]) + ". " + "*" + item[1] + "\n"
+
+    # Guardamos las listas del usuario
+    context.user_data["user_lists"] = user_lists
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, parse_mode="Markdown")
+
+    return LIST_TO_SEARCH
+
+def lists_to_search(update: Update, context: CallbackContext):
+    # Buscamos a qué identificador de lista pertenece el índice ingresado por el usuario
+    user_lists =  context.user_data["user_lists"]
+    list_id = None
+    for item in user_lists:
+        if item[0] == int(update.message.text):
+            list_id = item[2]
+
+    # Buscar y desplegar las tareas asociadas a la lista seleccionada por el usuario
+    docs = db.collection(u'tasks').where(
+        u'list_id', u'==', list_id).stream()
+    
+    # Nombre de la lista
+    list_doc = db.collection(u'lists').document(list_id).get()
+    list_data = list_doc.to_dict()
+
+    tasks = []
+    response = ""
+    index = 1
+    for doc in docs:
+        data = doc.to_dict()
+
+        # Lista para posteriormente buscar el identificador de la que selecionó el usuario
+        tasks.append([index, data["title"], doc.id])
+
+        # TODO: La hora debería cambiar en base al timezone del usuario, por ahora se usa el timezone America/Santiago
+        time_america_santiago = data["reminder_time"].astimezone(ZoneInfo("America/Santiago"))
+        if response == "":
+            response = "*" + str(index) + ". " + data["title"] + "*" + " | "+ time_america_santiago.strftime("%d/%m/%Y, %H:%M") + "\n\t\t\t\t" + "_" + data["description"] + "_"
+            index += 1
+        else:
+            response = response + "\n" + "*" + str(index) + ". " + data["title"] + "*" + " | " + time_america_santiago.strftime("%d/%m/%Y, %H:%M") + "\n\t\t\t\t" + "_" + data["description"] + "_"
+            index += 1
+    
+    response = "Ingresa el número de la tarea que quieres eliminar" + "\n\n" + list_data["title"] + "\n\n" + response
+
+    # Guardamos las tareas del usuario (tareas asociadas a la lista que previamente selecionó)
+    context.user_data["tasks"] = tasks
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=response, parse_mode="Markdown")
+
+    return TASK_TO_DELETE
+
+def task_to_delete(update: Update, context: CallbackContext):
+   # Buscamos a qué identificador de tarea pertenece el índice ingresado por el usuario
+    tasks =  context.user_data["tasks"]
+    task_id = None
+    for item in tasks:
+        if item[0] == int(update.message.text):
+            task_id = item[2]
+    
+    # Eliminar la tarea que el usuario selecionó
+    db.collection(u'tasks').document(task_id).delete()
 
     return ConversationHandler.END
 
@@ -266,6 +351,17 @@ conv_handler = ConversationHandler(
     fallbacks=[]
 )
 dispatcher.add_handler(conv_handler)
+
+# Nueva conversación para eliminar una tarea existente
+conv_handler2 = ConversationHandler(
+    entry_points=[CommandHandler('deletetask', delete_task)],
+    states={
+        LIST_TO_SEARCH: [MessageHandler(Filters.text & ~Filters.command, lists_to_search)],
+        TASK_TO_DELETE: [MessageHandler(Filters.text & ~Filters.command, task_to_delete)]
+    },
+    fallbacks=[]
+)
+dispatcher.add_handler(conv_handler2)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
