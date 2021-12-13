@@ -230,7 +230,7 @@ def lists_to_search(update: Update, context: CallbackContext):
     # Guardamos las tareas del usuario (tareas asociadas a la lista que previamente selecionó)
     context.user_data["tasks"] = tasks
 
-    context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=response, parse_mode="Markdown")
 
     return TASK_TO_DELETE
 
