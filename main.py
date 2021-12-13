@@ -1,5 +1,5 @@
-from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, ConversationHandler, Filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, user
 from dotenv import load_dotenv, find_dotenv
 import logging
 import os
@@ -7,6 +7,12 @@ import firebase_admin
 from firebase_admin import firestore
 from zoneinfo import ZoneInfo
 import json
+import time
+import datetime
+from telegram.ext.messagehandler import MessageHandler
+
+# Variables para la conversación donde se crea una nueva tarea
+LIST, TITLE, DESCRIPTION, REMINDER_TIME = range(4)
 
 # Se cargan todas las variables encontradas en el archivo .env como variables de ambiente,
 # en específico se carga la variable TELEGRAM_TOKEN la cual contiene el token del bot
@@ -54,12 +60,96 @@ def create_new_list(update: Update, context: CallbackContext):
     # Datos de la nueva lista
     new_list = { "title": context.args[0], "telegram_user_id": update.effective_message.from_user.id }
 
-    # Peticióna la BD para crear la lista
+    # Petición a la BD para crear la lista
     db.collection(u'lists').add(new_list)
 
     # Mensaje de confirmación
     context.bot.send_message(
         chat_id=update.effective_chat.id, text="¡Lista creada!")
+
+def create_new_task(update: Update, context: CallbackContext):
+    # Vamos a buscar las listas del usuario a la BD
+    docs = db.collection(u'lists').where(
+        u'telegram_user_id', u'==', update.effective_message.from_user.id).stream()
+
+    # Convertimos los datos al formato [ [index, title, list_id], ... ]
+    user_lists = []
+    index = 1
+    for doc in docs:
+        data = doc.to_dict()
+        user_lists.append([index, data["title"], doc.id])
+        index+=1
+
+    # Mensaje a imprimir (se imprimen las listas del usurario)
+    text = "Ingresa el número de la lista a la que le quieres agregar una tarea\n\n"
+    for item in user_lists:
+        text += "*" + str(item[0]) + ". " + "*" + item[1] + "\n"
+
+    # Guardamos el identificador del usuario
+    context.user_data["telegram_user_id"] = update.effective_message.from_user.id
+
+    # Guardamos las listas del usuario
+    context.user_data["user_lists"] = user_lists
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, parse_mode="Markdown")
+
+    return LIST
+
+def task_list(update: Update, context: CallbackContext):
+    # Buscamos a qué identificador de lista pertenece el índice ingresado por el usuario
+    user_lists =  context.user_data["user_lists"]
+    list_id = None
+    for item in user_lists:
+        if item[0] == int(update.message.text):
+            list_id = item[2]
+
+    # Guardamos el índice de la lista a la cual se le quiere agregar una tarea
+    context.user_data["list_id"] = list_id
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text="Ingresa el título de la nueva tarea")
+    return TITLE
+
+def task_title(update: Update, context: CallbackContext):
+    # Guardamos el título de la nueva tarea
+    context.user_data["title"] = update.message.text
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text="Ingresa la descripción de la nueva tarea")
+
+    return DESCRIPTION
+
+def task_description(update: Update, context: CallbackContext):
+   # Guardamos la descripción de la nueva tarea
+    context.user_data["description"] = update.message.text
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text="Ingresa fecha y hora del recordatorio, formato DD/MM/AAAA HH:MM (24h)")
+    
+    return REMINDER_TIME
+
+def task_reminder_time(update: Update, context: CallbackContext):
+    # Obtenemos el string del reminder time y lo convertimos a timestamp
+    reminder_time_string = update.message.text
+    # TODO: La hora debería codificarse en base al timezone del usuario, por ahora se usa el timezone America/Santiago
+    reminder_time_timestamp = datetime.datetime.strptime(reminder_time_string + " -0300", "%d/%m/%Y %H:%M %z")
+
+    # Guardamos el timestamp del recordatorio de la nueva tarea
+    context.user_data["reminder_time"] = reminder_time_timestamp
+
+    new_task = { 
+        "title":  context.user_data["title"], 
+        "description": context.user_data["description"],
+        "reminder_time": context.user_data["reminder_time"],
+        "telegram_user_id": context.user_data["telegram_user_id"],
+        "list_id": context.user_data["list_id"],
+    }
+
+    # Petición a la BD para crear la tarea
+    db.collection(u'tasks').add(new_task)
+
+    return ConversationHandler.END
 
 # Parses the CallbackQuery and updates the message text
 def button(update: Update, context: CallbackContext) -> None:
@@ -110,6 +200,19 @@ dispatcher.add_handler(button_handler)
 # Se registra un CommandHandler para el comando /newlist
 new_list_handler = CommandHandler('newlist', create_new_list)
 dispatcher.add_handler(new_list_handler)
+
+# Nueva conversación para agregar una nueva tarea
+conv_handler = ConversationHandler(
+    entry_points=[CommandHandler('newtask', create_new_task)],
+    states= {
+        LIST: [MessageHandler(Filters.text & ~Filters.command, task_list)],
+        TITLE: [MessageHandler(Filters.text & ~Filters.command, task_title)],
+        DESCRIPTION: [MessageHandler(Filters.text & ~Filters.command, task_description)],
+        REMINDER_TIME: [MessageHandler(Filters.text & ~Filters.command, task_reminder_time)]
+    },
+    fallbacks=[]
+)
+dispatcher.add_handler(conv_handler)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
