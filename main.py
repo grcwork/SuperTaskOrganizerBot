@@ -15,6 +15,9 @@ from telegram.ext.messagehandler import MessageHandler
 # Variables para la conversación donde se crea una nueva tarea
 LIST, TITLE, DESCRIPTION, REMINDER_TIME = range(4)
 
+# Variables para la conversación que elimina una tarea existente
+LIST_TO_SEARCH, TASK_TO_DELETE = range(2)
+
 import pytz, datetime
 #from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
@@ -266,6 +269,17 @@ conv_handler = ConversationHandler(
     fallbacks=[]
 )
 dispatcher.add_handler(conv_handler)
+
+# Nueva conversación para eliminar una tarea existente
+conv_handler2 = ConversationHandler(
+    entry_points=[],
+    states={
+        LIST_TO_SEARCH: [],
+        TASK_TO_DELETE: []
+    },
+    fallbacks=[]
+)
+dispatcher.add_handler(conv_handler2)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
