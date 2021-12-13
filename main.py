@@ -191,11 +191,51 @@ def delete_task(update: Update, context: CallbackContext):
 
     return LIST_TO_SEARCH
 
-def lists_to_search():
-    pass
+def lists_to_search(update: Update, context: CallbackContext):
+    # Buscamos a qué identificador de lista pertenece el índice ingresado por el usuario
+    user_lists =  context.user_data["user_lists"]
+    list_id = None
+    for item in user_lists:
+        if item[0] == int(update.message.text):
+            list_id = item[2]
+
+    # Buscar y desplegar las tareas asociadas a la lista seleccionada por el usuario
+    docs = db.collection(u'tasks').where(
+        u'list_id', u'==', list_id).stream()
+    
+    # Nombre de la lista
+    list_doc = db.collection(u'lists').document(list_id).get()
+    list_data = list_doc.to_dict()
+
+    tasks = []
+    response = ""
+    index = 1
+    for doc in docs:
+        data = doc.to_dict()
+
+        # Lista para posteriormente buscar el identificador de la que selecionó el usuario
+        tasks.append([index, data["title"], doc.id])
+
+        # TODO: La hora debería cambiar en base al timezone del usuario, por ahora se usa el timezone America/Santiago
+        time_america_santiago = data["reminder_time"].astimezone(ZoneInfo("America/Santiago"))
+        if response == "":
+            response = "*" + str(index) + ". " + data["title"] + "*" + " | "+ time_america_santiago.strftime("%d/%m/%Y, %H:%M") + "\n\t\t\t\t" + "_" + data["description"] + "_"
+            index += 1
+        else:
+            response = response + "\n" + "*" + str(index) + ". " + data["title"] + "*" + " | " + time_america_santiago.strftime("%d/%m/%Y, %H:%M") + "\n\t\t\t\t" + "_" + data["description"] + "_"
+            index += 1
+    
+    response = "Ingresa el número de la tarea que quieres eliminar" + "\n\n" + list_data["title"] + "\n\n" + response
+
+    # Guardamos las tareas del usuario (tareas asociadas a la lista que previamente selecionó)
+    context.user_data["tasks"] = tasks
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+
+    return TASK_TO_DELETE
 
 def task_to_delete():
-    pass
+   pass
 
 def get_chat_id(update: Update, context: CallbackContext):
     chat_id = -1
