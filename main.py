@@ -165,6 +165,15 @@ def task_reminder_time(update: Update, context: CallbackContext):
 
     return ConversationHandler.END
 
+def delete_task():
+    pass
+
+def lists_to_search():
+    pass
+
+def task_to_delete():
+    pass
+
 def get_chat_id(update: Update, context: CallbackContext):
     chat_id = -1
 
@@ -272,10 +281,10 @@ dispatcher.add_handler(conv_handler)
 
 # Nueva conversación para eliminar una tarea existente
 conv_handler2 = ConversationHandler(
-    entry_points=[],
+    entry_points=[CommandHandler('deletetask', delete_task)],
     states={
-        LIST_TO_SEARCH: [],
-        TASK_TO_DELETE: []
+        LIST_TO_SEARCH: [MessageHandler(Filters.text & ~Filters.command, lists_to_search)],
+        TASK_TO_DELETE: [MessageHandler(Filters.text & ~Filters.command, task_to_delete)]
     },
     fallbacks=[]
 )
