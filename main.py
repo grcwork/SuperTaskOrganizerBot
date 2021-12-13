@@ -7,7 +7,7 @@ import logging
 import os
 import firebase_admin
 from firebase_admin import firestore
-#from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 import json
 import time
 from telegram.ext.messagehandler import MessageHandler
