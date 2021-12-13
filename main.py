@@ -234,8 +234,18 @@ def lists_to_search(update: Update, context: CallbackContext):
 
     return TASK_TO_DELETE
 
-def task_to_delete():
-   pass
+def task_to_delete(update: Update, context: CallbackContext):
+   # Buscamos a qué identificador de tarea pertenece el índice ingresado por el usuario
+    tasks =  context.user_data["tasks"]
+    task_id = None
+    for item in tasks:
+        if item[0] == int(update.message.text):
+            task_id = item[2]
+    
+    # Eliminar la tarea que el usuario selecionó
+    db.collection(u'tasks').document(task_id).delete()
+
+    return ConversationHandler.END
 
 def get_chat_id(update: Update, context: CallbackContext):
     chat_id = -1
