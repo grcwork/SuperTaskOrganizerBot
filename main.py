@@ -250,8 +250,31 @@ def task_to_delete(update: Update, context: CallbackContext):
 
     return ConversationHandler.END
 
-def delete_list():
-    pass
+def delete_list(update: Update, context: CallbackContext):
+    # Vamos a buscar las listas del usuario a la BD
+    docs = db.collection(u'lists').where(
+        u'telegram_user_id', u'==', update.effective_message.from_user.id).stream()
+
+    # Convertimos los datos al formato [ [index, title, list_id], ... ]
+    user_lists = []
+    index = 1
+    for doc in docs:
+        data = doc.to_dict()
+        user_lists.append([index, data["title"], doc.id])
+        index+=1
+
+    # Mensaje a imprimir (se imprimen las listas del usuario)
+    text = "Ingresa el número de la lista que quieres eliminar (se eliminarán todas las tareas asociadas)\n\n"
+    for item in user_lists:
+        text += "*" + str(item[0]) + ". " + "*" + item[1] + "\n"
+
+    # Guardamos las listas del usuario
+    context.user_data["user_lists"] = user_lists
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, parse_mode="Markdown")
+
+    return LIST_TO_DELETE
 
 def list_to_delete():
     pass
