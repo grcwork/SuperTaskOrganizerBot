@@ -18,6 +18,9 @@ LIST, TITLE, DESCRIPTION, REMINDER_TIME = range(4)
 # Variables para la conversación que elimina una tarea existente
 LIST_TO_SEARCH, TASK_TO_DELETE = range(2)
 
+# Variable para la conversación que elimina un lista existente
+LIST_TO_DELETE = range(1)
+
 import pytz, datetime
 #from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
@@ -247,6 +250,12 @@ def task_to_delete(update: Update, context: CallbackContext):
 
     return ConversationHandler.END
 
+def delete_list():
+    pass
+
+def list_to_delete():
+    pass
+
 def get_chat_id(update: Update, context: CallbackContext):
     chat_id = -1
 
@@ -362,6 +371,16 @@ conv_handler2 = ConversationHandler(
     fallbacks=[]
 )
 dispatcher.add_handler(conv_handler2)
+
+# Nueva conversación para eliminar una lista existente (y todas sus tareas asociadas)
+conv_handler3 = ConversationHandler(
+    entry_points=[CommandHandler('deletelist', delete_list)],
+    states={
+        LIST_TO_DELETE: [MessageHandler(Filters.text & ~Filters.command, list_to_delete)]
+    },
+    fallbacks=[]
+)
+dispatcher.add_handler(conv_handler3)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
