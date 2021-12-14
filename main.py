@@ -18,6 +18,9 @@ LIST, TITLE, DESCRIPTION, REMINDER_TIME = range(4)
 # Variables para la conversación que elimina una tarea existente
 LIST_TO_SEARCH, TASK_TO_DELETE = range(2)
 
+# Variable para la conversación que elimina un lista existente
+LIST_TO_DELETE = range(1)
+
 import pytz, datetime
 #from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
@@ -247,6 +250,51 @@ def task_to_delete(update: Update, context: CallbackContext):
 
     return ConversationHandler.END
 
+def delete_list(update: Update, context: CallbackContext):
+    # Vamos a buscar las listas del usuario a la BD
+    docs = db.collection(u'lists').where(
+        u'telegram_user_id', u'==', update.effective_message.from_user.id).stream()
+
+    # Convertimos los datos al formato [ [index, title, list_id], ... ]
+    user_lists = []
+    index = 1
+    for doc in docs:
+        data = doc.to_dict()
+        user_lists.append([index, data["title"], doc.id])
+        index+=1
+
+    # Mensaje a imprimir (se imprimen las listas del usuario)
+    text = "Ingresa el número de la lista que quieres eliminar (se eliminarán todas las tareas asociadas)\n\n"
+    for item in user_lists:
+        text += "*" + str(item[0]) + ". " + "*" + item[1] + "\n"
+
+    # Guardamos las listas del usuario
+    context.user_data["user_lists"] = user_lists
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, parse_mode="Markdown")
+
+    return LIST_TO_DELETE
+
+def list_to_delete(update: Update, context: CallbackContext):
+    # Buscamos a qué identificador de lista pertenece el índice ingresado por el usuario
+    user_lists =  context.user_data["user_lists"]
+    list_id = None
+    for item in user_lists:
+        if item[0] == int(update.message.text):
+            list_id = item[2]
+    
+    # Primero eliminamos la tareas asociadas a la lista selecionada por el usuario
+    tasks = db.collection(u'tasks').where(u'list_id', u'==', list_id).stream()
+    for task in tasks:
+        # Eliminar la tarea
+        db.collection(u'tasks').document(task.id).delete()
+
+    # Ahora se elimina la lista en sí misma
+    db.collection(u'lists').document(list_id).delete()
+
+    return ConversationHandler.END
+
 def get_chat_id(update: Update, context: CallbackContext):
     chat_id = -1
 
@@ -362,6 +410,16 @@ conv_handler2 = ConversationHandler(
     fallbacks=[]
 )
 dispatcher.add_handler(conv_handler2)
+
+# Nueva conversación para eliminar una lista existente (y todas sus tareas asociadas)
+conv_handler3 = ConversationHandler(
+    entry_points=[CommandHandler('deletelist', delete_list)],
+    states={
+        LIST_TO_DELETE: [MessageHandler(Filters.text & ~Filters.command, list_to_delete)]
+    },
+    fallbacks=[]
+)
+dispatcher.add_handler(conv_handler3)
 
 # Se empiezan a traer updates desde Telegram
 updater.start_polling()
