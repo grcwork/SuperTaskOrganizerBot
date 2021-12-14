@@ -276,8 +276,24 @@ def delete_list(update: Update, context: CallbackContext):
 
     return LIST_TO_DELETE
 
-def list_to_delete():
-    pass
+def list_to_delete(update: Update, context: CallbackContext):
+    # Buscamos a qué identificador de lista pertenece el índice ingresado por el usuario
+    user_lists =  context.user_data["user_lists"]
+    list_id = None
+    for item in user_lists:
+        if item[0] == int(update.message.text):
+            list_id = item[2]
+    
+    # Primero eliminamos la tareas asociadas a la lista selecionada por el usuario
+    tasks = db.collection(u'tasks').where(u'list_id', u'==', list_id).stream()
+    for task in tasks:
+        # Eliminar la tarea
+        db.collection(u'tasks').document(task.id).delete()
+
+    # Ahora se elimina la lista en sí misma
+    db.collection(u'lists').document(list_id).delete()
+
+    return ConversationHandler.END
 
 def get_chat_id(update: Update, context: CallbackContext):
     chat_id = -1
