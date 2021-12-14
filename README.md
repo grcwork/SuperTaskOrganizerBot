@@ -16,9 +16,9 @@ Para poder llevar a cabo las interacciones con el bot, se entregan los siguiente
 
 - /newtask Inicia la creación de una nueva tarea.
 - /newlist Inicia la creación de una nueva lista.
+  > Para poder asignar una tarea a una lista, esta última debe existir previamente.
 - /deletetask Permite eliminar una tarea
 - /deletelist Permite eliminar una lista, junto a todas las tareas pertenecientes a esa lista. 
-  > Para poder asignar una tarea a una lista, esta última debe existir previamente.
 - /lists Muestra las listas existentes, a través de las cuales se puede acceder a las tareas pertenecientes a ellas.
 - /help Muestra los comandos anteriormente mencionados.
 
