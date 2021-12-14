@@ -24,4 +24,10 @@ Para poder llevar a cabo las interacciones con el bot, se entregan los siguiente
 
 ## ¿Cómo uso el bot?
 
-Para utilizar el bot, búscalo como @SuperTaskOrganizerBot o visita https://telegram.me/SuperTaskOrganizerBot.
+Para utilizar el bot, se necesita
+- `Python 3.9` o mayor
+- `firebase-admin`
+- `python-telegram-bot`
+
+Una vez instaladas las dependencias, debe ejecutar el archivo main.py. Puede utilizar `py main.py` u otro comando de su convenciencia.
+Una vez esté corriendo el bot, puede encontrarlo como @SuperTaskOrganizerBot o visita https://telegram.me/SuperTaskOrganizerBot.
