@@ -55,7 +55,7 @@ def start(update: Update, context: CallbackContext):
 #Función para mostrar comandos y su funcionalidad
 def help(update: Update, context: CallbackContext):
     context.bot.send_message(
-        chat_id=update.effective_chat.id, text="Lista de comandos y sus funcionalidades: \n /lists -> permite ver las listas y tareas disponibles \n /newlist -> permite crear una lista nueva \n /newtask permite crear una tarea nueva \n /help -> permite obtener ayuda sobre el funcionamiento del bot"
+        chat_id=update.effective_chat.id, text="Lista de comandos y sus funcionalidades: \n /lists -> permite ver las listas y tareas disponibles \n /newlist -> permite crear una lista nueva \n /newtask permite crear una tarea nueva \n /deletetask -> permite eliminar una tarea \n -> /deletelist -> permite eliminar una lista y sus tareas \n /help -> permite obtener ayuda sobre el funcionamiento del bot"
     )
 
 
